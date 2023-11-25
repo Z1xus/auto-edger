@@ -1,11 +1,13 @@
 ## auto-edger
 
-This simple C++ app will automatically "edge" for you in the [Roblox Looksmaxxing Simulator](https://www.roblox.com/games/14844477632/UPD-4-Looksmaxxing-Simulator).
+This simple C++ app will automatically "edge" for you in the [Roblox Looksmaxxing Simulator](https://www.roblox.com/games/14844477632/UPD-4-Looksmaxxing-Simulator).  
 It directly accesses the bitmap and looks for the pixels matching specific color.
 
-<picture>
-  <img src="./preview.gif">
+<p align="center">
+  <img src="./preview.gif">  
 </picture>
+
+<br>
 
 > [!NOTE]  
 > Windows only!
@@ -26,4 +28,4 @@ cmake --version
 ```bash
 .\build.bat
 ```
-4. Find your executable under /build/Release
+4. Find your executable under `/build/Release`
