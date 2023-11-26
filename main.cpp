@@ -11,6 +11,7 @@ constexpr DWORD kHotkeyId = 1;
 
 std::atomic<bool> g_isActive(false);
 std::atomic<bool> g_autoTapXActive(false);
+std::atomic<bool> g_moveCursor(false);
 std::atomic<bool> g_programRunning(true);
 
 std::thread autoTapXThread;
@@ -64,6 +65,9 @@ void ClickOnColorMatch(HDC hdc, int yStart, int yEnd, COLORREF targetColor) {
 
         COLORREF color = GetPixel(hdc, 0, y - yStart);
         if (color == targetColor) {
+            if (g_moveCursor) {
+                SetCursorPos(g_xCoord, y);
+            }
             Click();
             break;
         }
@@ -139,6 +143,11 @@ void ToggleAutoTapX() {
     }
 }
 
+void ToggleMoveCursor() {
+    g_moveCursor = !g_moveCursor;
+    LogMessage(g_moveCursor ? "move cursor mode enabled" : "move cursor mode disabled");
+}
+
 void ToggleAutoEdge() {
     g_isActive = !g_isActive;
     LogMessage(g_isActive ? "started auto-edging" : "stopped auto-edging");
@@ -155,6 +164,7 @@ void HandleCommands() {
             LogMessage("help - shows this message");
             LogMessage("exit - ropemaxx");
             LogMessage("autotapx - toggle auto tapping x every .3s (enters \'edge\' mode for you)");
+            LogMessage("movecursor - toggle moving cursor to the pixel position");
             LogMessage("autoedge - toggle auto-edging");
         } else if (command == "exit") {
             g_autoTapXActive = false;
@@ -164,6 +174,8 @@ void HandleCommands() {
             ToggleAutoTapX();
         } else if (command == "autoedge") {
             ToggleAutoEdge();
+        } else if (command == "movecursor") {
+            ToggleMoveCursor();
         } else if (command == "author") {
             LogMessage("@z1xus");
         } else {
