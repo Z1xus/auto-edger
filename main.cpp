@@ -5,6 +5,7 @@
 #include <string>
 #include <windows.h>
 #include <psapi.h>
+#include <vector>
 
 constexpr COLORREF kTargetColor = RGB(43, 137, 254);
 constexpr DWORD kHotkeyId = 1;
@@ -57,53 +58,82 @@ void Click() {
     SendInput(1, &input, sizeof(INPUT));
 }
 
-void ClickOnColorMatch(HDC hdc, int yStart, int yEnd, COLORREF targetColor) {
-    for (int y = yStart; y < yEnd; ++y) {
-        if (!g_isActive) {
-            return;
-        }
-
-        COLORREF color = GetPixel(hdc, 0, y - yStart);
-        if (color == targetColor) {
-            if (g_moveCursor) {
-                SetCursorPos(g_xCoord, y);
-            }
-            Click();
-            break;
-        }
+void ReleaseHdc(HDC hdc) {
+    if (hdc) {
+        ReleaseDC(nullptr, hdc);
     }
 }
 
-void ScanForCouleur() {
-    HDC hdcScreen = GetDC(nullptr);
-    HBITMAP hBitmap = CreateCompatibleBitmap(hdcScreen, 1, g_yEnd - g_yStart);
-    HDC hdcMem = CreateCompatibleDC(hdcScreen);
+void DeleteGdiObject(HGDIOBJ obj) {
+    if (obj) {
+        DeleteObject(obj);
+    }
+}
 
-    BITMAPINFO bmi;
-    ZeroMemory(&bmi, sizeof(BITMAPINFO));
-    bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-    bmi.bmiHeader.biWidth = 1;
-    bmi.bmiHeader.biHeight = g_yEnd - g_yStart;
-    bmi.bmiHeader.biPlanes = 1;
-    bmi.bmiHeader.biBitCount = 32;
-    bmi.bmiHeader.biCompression = BI_RGB;
+using UniqueHdc = std::unique_ptr<std::remove_pointer<HDC>::type, 
+                                   decltype(&ReleaseHdc)>;
+using UniqueBitmap = std::unique_ptr<std::remove_pointer<HBITMAP>::type, 
+                                     decltype(&DeleteGdiObject)>;
 
-    void* pBits;
-    HBITMAP hDirectBitmap = CreateDIBSection(hdcMem, &bmi, DIB_RGB_COLORS, &pBits, nullptr, 0);
-
-    while (g_programRunning) {
-        if (g_isActive.load()) {
-            HBITMAP hOldBitmap = static_cast<HBITMAP>(SelectObject(hdcMem, hDirectBitmap));
-            BitBlt(hdcMem, 0, 0, 1, g_yEnd - g_yStart, hdcScreen, g_xCoord, g_yStart, SRCCOPY);
-            ClickOnColorMatch(hdcMem, g_yStart, g_yEnd, kTargetColor);
-            SelectObject(hdcMem, hOldBitmap);
-        }
+void AutoEdge() {
+    UniqueHdc hdcScreen(GetDC(nullptr), ReleaseHdc);
+    if (!hdcScreen) {
+        return;
     }
 
-    DeleteObject(hDirectBitmap);
-    DeleteDC(hdcMem);
-    DeleteObject(hBitmap);
-    ReleaseDC(nullptr, hdcScreen);
+    UniqueHdc hdcMem(CreateCompatibleDC(hdcScreen.get()), [](HDC hdc) { DeleteDC(hdc); });
+    if (!hdcMem) {
+        return;
+    }
+
+    int height = g_yEnd - g_yStart;
+    UniqueBitmap hBitmap(CreateCompatibleBitmap(hdcScreen.get(), 1, height), DeleteGdiObject);
+    if (!hBitmap) {
+        return;
+    }
+
+    SelectObject(hdcMem.get(), hBitmap.get());
+
+    BITMAPINFO bmi = {};
+    bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    bmi.bmiHeader.biWidth = 1;
+    bmi.bmiHeader.biHeight = -height;
+    bmi.bmiHeader.biPlanes = 1;
+    bmi.bmiHeader.biBitCount = 24;
+    bmi.bmiHeader.biCompression = BI_RGB;
+
+    const int stride = ((24 * 1 + 31) / 32) * 4;
+    std::vector<BYTE> buffer(stride * height);
+
+    const int cachedXCoord = g_xCoord;
+    const int cachedYStart = g_yStart;
+
+    const BYTE targetRed = GetRValue(kTargetColor);
+    const BYTE targetGreen = GetGValue(kTargetColor);
+    const BYTE targetBlue = GetBValue(kTargetColor);
+
+    while (g_programRunning.load()) {
+        if (g_isActive.load() && IsRobloxFocused()) {
+            BitBlt(hdcMem.get(), 0, 0, 1, height, hdcScreen.get(), cachedXCoord, cachedYStart, SRCCOPY);
+
+            if (GetDIBits(hdcMem.get(), hBitmap.get(), 0, height, buffer.data(), &bmi, DIB_RGB_COLORS)) {
+                for (int y = 0; y < height; ++y) {
+                    int index = y * stride;
+                    if (buffer[index + 2] == targetRed &&
+                        buffer[index + 1] == targetGreen &&
+                        buffer[index + 0] == targetBlue) {
+                        if (g_moveCursor.load()) {
+                            SetCursorPos(cachedXCoord, cachedYStart + y);
+                        }
+                        Click();
+                        break;
+                    }
+                }
+            }
+        } else {
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        }
+    }
 }
 
 void AutoTapX() {
@@ -189,6 +219,7 @@ void HandleCommands() {
 
 int main() {
     SetConsoleTitle(TEXT("auto-edger"));
+    SetPriorityClass(GetCurrentProcess(), HIGH_PRIORITY_CLASS);
 
     if (!SetProcessDPIAware()) {
         LogMessage("warning: failed to set process dpi awareness");
@@ -206,7 +237,7 @@ int main() {
 
     LogMessage("type 'help' for a list of commands");
 
-    std::thread scanThread(ScanForCouleur);
+    std::thread autoEdgeThread(AutoEdge);
     std::thread commandThread(HandleCommands);
 
     MSG msg = {};
@@ -229,8 +260,8 @@ int main() {
     if (commandThread.joinable()) {
         commandThread.join();
     }
-    if (scanThread.joinable()) {
-        scanThread.join();
+    if (autoEdgeThread.joinable()) {
+        autoEdgeThread.join();
     }
 
     return 0;
