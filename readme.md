@@ -7,6 +7,17 @@ It directly accesses the bitmap and looks for the pixels matching specific color
   <img src="./preview.gif">  
 </picture>
 
+<p align="center">
+    <a href="https://www.codefactor.io/repository/github/z1xus/auto-edger">
+        <img src="https://www.codefactor.io/repository/github/z1xus/auto-edger/badge" alt="CodeFactor" /></a>
+    <a href="https://www.codefactor.io/repository/github/z1xus/auto-edger" alt="GitHub all releases">
+        <img src="https://img.shields.io/github/downloads/z1xus/auto-edger/total"></a>
+    <a href="https://github.com/Z1xus/auto-edger/issues?q=is%3Aissue+is%3Aopen+" alt="GitHub issues">
+        <img src="https://img.shields.io/github/issues/z1xus/auto-edger"></a>
+    <a href="https://github.com/Z1xus/auto-edger/pulls?q=is%3Apr+is%3Aopen+" alt="GitHub pull requests">
+        <img src="https://img.shields.io/github/issues-pr/z1xus/auto-edger"></a>
+</p>
+
 <br>
 
 > [!NOTE]  
