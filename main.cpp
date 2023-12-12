@@ -6,6 +6,7 @@
 #include <windows.h>
 #include <psapi.h>
 #include <vector>
+#include <tlhelp32.h>
 
 constexpr COLORREF kTargetColor = RGB(43, 137, 254);
 constexpr DWORD kHotkeyId = 1;
@@ -217,6 +218,34 @@ void HandleCommands() {
 	LogMessage("\nbye!");
 }
 
+bool isRobloxOn() {
+	HANDLE hProcessSnap;
+    PROCESSENTRY32 pe32;
+
+    // Take a snapshot of all processes in the system.
+    hProcessSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    if (hProcessSnap == INVALID_HANDLE_VALUE) {
+        return false;
+    }
+
+    pe32.dwSize = sizeof(PROCESSENTRY32);
+
+    if (!Process32First(hProcessSnap, &pe32)) {
+        CloseHandle(hProcessSnap); // clean the snapshot object
+        return false;
+    }
+
+    do {
+        if (strcmp(pe32.szExeFile, "RobloxPlayerBeta.exe") == 0) {
+            CloseHandle(hProcessSnap);
+            return true;
+        }
+    } while (Process32Next(hProcessSnap, &pe32));
+
+    CloseHandle(hProcessSnap);
+    return false;
+}
+
 int main() {
 	SetConsoleTitle(TEXT("auto-edger"));
 	SetPriorityClass(GetCurrentProcess(), HIGH_PRIORITY_CLASS);
@@ -228,6 +257,14 @@ int main() {
 	int screenWidth = GetSystemMetrics(SM_CXSCREEN);
 	int screenHeight = GetSystemMetrics(SM_CYSCREEN);
 	AccountForDifferentRes(screenWidth, screenHeight);
+
+	if (!isRobloxOn()) {
+		LogMessage("warning: roblox is not running\nturn on roblox, dummy");
+
+		while (!isRobloxOn()) {
+			std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+		}
+	}
 
 	if (!RegisterHotKey(nullptr, kHotkeyId, 0, VK_F8)) {
 		LogMessage("failed to register hotkey for f8. use 'autoedge' command to toggle");
